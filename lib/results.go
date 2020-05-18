@@ -36,6 +36,7 @@ type Result struct {
 	Method    string        `json:"method"`
 	URL       string        `json:"url"`
 	Headers   http.Header   `json:"headers"`
+	Extra     Extra         `json:"extra"`
 }
 
 // End returns the time at which a Result ended.
@@ -54,7 +55,8 @@ func (r Result) Equal(other Result) bool {
 		bytes.Equal(r.Body, other.Body) &&
 		r.Method == other.Method &&
 		r.URL == other.URL &&
-		headerEqual(r.Headers, other.Headers)
+		headerEqual(r.Headers, other.Headers) &&
+		r.Extra.Equal(other.Extra)
 }
 
 func headerEqual(h1, h2 http.Header) bool {
@@ -184,6 +186,7 @@ func NewCSVEncoder(w io.Writer) Encoder {
 			r.Method,
 			r.URL,
 			base64.StdEncoding.EncodeToString(headerBytes(r.Headers)),
+			base64.StdEncoding.EncodeToString(r.Extra.Serialize()),
 		})
 		if err != nil {
 			return err
@@ -207,7 +210,7 @@ func headerBytes(h http.Header) []byte {
 // NewCSVDecoder returns a Decoder that decodes CSV encoded Results.
 func NewCSVDecoder(r io.Reader) Decoder {
 	dec := csv.NewReader(r)
-	dec.FieldsPerRecord = 12
+	dec.FieldsPerRecord = 13
 	dec.TrimLeadingSpace = true
 
 	return func(r *Result) error {
@@ -263,6 +266,18 @@ func NewCSVDecoder(r io.Reader) Decoder {
 				return err
 			}
 			r.Headers = http.Header(hdr)
+		}
+
+		if rec[12] != "" {
+			extraBytes, err := base64.StdEncoding.DecodeString(rec[12])
+			if err != nil {
+				return err
+			}
+			extra, err := deserializeExtra(extraBytes)
+			if err != nil {
+				return err
+			}
+			r.Extra = extra
 		}
 
 		return err

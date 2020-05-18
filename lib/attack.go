@@ -369,6 +369,7 @@ func (a *Attacker) hit(tr Targeter, name string) *Result {
 
 	res.Method = tgt.Method
 	res.URL = tgt.URL
+	res.Extra = tgt.Extra
 
 	req, err := tgt.Request()
 	if err != nil {

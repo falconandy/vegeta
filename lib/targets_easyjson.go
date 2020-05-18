@@ -83,6 +83,26 @@ func (t *jsonTarget) decode(in *jlexer.Lexer) {
 				}
 				in.Delim('}')
 			}
+		case "extra":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				in.Delim('{')
+				if !in.IsDelim('}') {
+					t.Extra = make(Extra)
+				} else {
+					t.Extra = nil
+				}
+				for !in.IsDelim('}') {
+					key := string(in.String())
+					in.WantColon()
+					var v4 string
+					v4 = string(in.String())
+					(t.Extra)[key] = v4
+					in.WantComma()
+				}
+				in.Delim('}')
+			}
 		default:
 			in.SkipRecursive()
 		}
@@ -159,6 +179,25 @@ func (t jsonTarget) encode(out *jwriter.Writer) {
 					}
 					out.RawByte(']')
 				}
+			}
+			out.RawByte('}')
+		}
+	}
+	if len(t.Extra) != 0 {
+		const prefix string = ",\"extra\":"
+		out.RawString(prefix)
+		{
+			out.RawByte('{')
+			v10First := true
+			for v10Name, v10Value := range t.Extra {
+				if v10First {
+					v10First = false
+				} else {
+					out.RawByte(',')
+				}
+				out.String(string(v10Name))
+				out.RawByte(':')
+				out.String(string(v10Value))
 			}
 			out.RawByte('}')
 		}

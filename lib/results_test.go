@@ -87,6 +87,11 @@ func TestResultEncoding(t *testing.T) {
 					rapid.SliceOfN(rapid.StringMatching(`\S`), 1, -1),
 				).Draw(t, "headers").(map[string][]string)
 
+				extra := Extra(rapid.MapOf(
+					rapid.StringMatching(`([\w-]+)`),
+					rapid.StringMatching(`(\S+)`),
+				).Draw(t, "extra").(map[string]string))
+
 				want := Result{
 					Attack:    rapid.String().Draw(t, "attack").(string),
 					Seq:       rapid.Uint64().Draw(t, "seq").(uint64),
@@ -110,6 +115,10 @@ func TestResultEncoding(t *testing.T) {
 					for _, v := range vs {
 						want.Headers.Add(k, v)
 					}
+				}
+
+				if len(extra) > 0 {
+					want.Extra = extra.Clone()
 				}
 
 				var buf bytes.Buffer

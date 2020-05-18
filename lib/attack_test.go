@@ -393,3 +393,24 @@ func TestVegetaHeaders(t *testing.T) {
 		}
 	}
 }
+
+func TestAttackExtra(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
+	)
+	defer server.Close()
+	target := Target{Method: "GET", URL: server.URL, Extra: Extra{"key1": "value1", "key2": "value2"}}
+	tr := NewStaticTargeter(target)
+	rate := Rate{Freq: 10, Per: time.Second}
+	atk := NewAttacker()
+	var extras []Extra
+	for result := range atk.Attack(tr, rate, 1*time.Second, "") {
+		extras = append(extras, result.Extra)
+	}
+	for _, extra := range extras {
+		if got, want := extra, target.Extra; !got.Equal(want) {
+			t.Fatalf("got: %v, want: %v", got, want)
+		}
+	}
+}

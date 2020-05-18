@@ -26,6 +26,7 @@ type Target struct {
 	URL    string      `json:"url"`
 	Body   []byte      `json:"body,omitempty"`
 	Header http.Header `json:"header,omitempty"`
+	Extra  Extra       `json:"extra,omitempty"`
 }
 
 // Request creates an *http.Request out of Target and returns it along with an
@@ -56,7 +57,8 @@ func (t *Target) Equal(other *Target) bool {
 		equal := t.Method == other.Method &&
 			t.URL == other.URL &&
 			bytes.Equal(t.Body, other.Body) &&
-			len(t.Header) == len(other.Header)
+			len(t.Header) == len(other.Header) &&
+			t.Extra.Equal(other.Extra)
 
 		if !equal {
 			return false
@@ -181,6 +183,8 @@ func NewJSONTargeter(src io.Reader, body []byte, header http.Header) Targeter {
 			tgt.Header[k] = append(tgt.Header[k], vs...)
 		}
 
+		tgt.Extra = t.Extra.Clone()
+
 		return nil
 	}
 }
@@ -301,26 +305,41 @@ func NewHTTPTargeter(src io.Reader, body []byte, hdr http.Header) Targeter {
 			if line = strings.TrimSpace(sc.Text()); line == "" {
 				break
 			} else if strings.HasPrefix(line, "#") {
-				continue
+				const extraPrefix = "#extra:"
+				if strings.HasPrefix(line, extraPrefix) {
+					line = strings.TrimPrefix(line, extraPrefix)
+					tokens = strings.SplitN(line, "=", 2)
+					if len(tokens) < 2 {
+						return fmt.Errorf("bad extra: %s", line)
+					}
+					if tokens[0] = strings.TrimSpace(tokens[0]); tokens[0] == "" {
+						return fmt.Errorf("bad extra: %s", line)
+					}
+					if tgt.Extra == nil {
+						tgt.Extra = Extra{}
+					}
+					tgt.Extra[tokens[0]] = strings.TrimSpace(tokens[1])
+				}
 			} else if strings.HasPrefix(line, "@") {
 				if tgt.Body, err = ioutil.ReadFile(line[1:]); err != nil {
 					return fmt.Errorf("bad body: %s", err)
 				}
 				break
-			}
-			tokens = strings.SplitN(line, ":", 2)
-			if len(tokens) < 2 {
-				return fmt.Errorf("bad header: %s", line)
-			}
-			for i := range tokens {
-				if tokens[i] = strings.TrimSpace(tokens[i]); tokens[i] == "" {
+			} else {
+				tokens = strings.SplitN(line, ":", 2)
+				if len(tokens) < 2 {
 					return fmt.Errorf("bad header: %s", line)
 				}
+				for i := range tokens {
+					if tokens[i] = strings.TrimSpace(tokens[i]); tokens[i] == "" {
+						return fmt.Errorf("bad header: %s", line)
+					}
+				}
+				// Add key/value directly to the http.Header (map[string][]string).
+				// http.Header.Add() canonicalizes keys but vegeta is used
+				// to test systems that require case-sensitive headers.
+				tgt.Header[tokens[0]] = append(tgt.Header[tokens[0]], tokens[1])
 			}
-			// Add key/value directly to the http.Header (map[string][]string).
-			// http.Header.Add() canonicalizes keys but vegeta is used
-			// to test systems that require case-sensitive headers.
-			tgt.Header[tokens[0]] = append(tgt.Header[tokens[0]], tokens[1])
 		}
 		if err = sc.Err(); err != nil {
 			return ErrNoTargets

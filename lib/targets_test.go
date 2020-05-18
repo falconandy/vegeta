@@ -32,6 +32,10 @@ func TestTargetRequest(t *testing.T) {
 			"X-Some-New-Header":   []string{"3"},
 			"Host":                []string{"lolcathost"},
 		},
+		Extra: Extra{
+			"key1": "value1",
+			"key2": "",
+		},
 	}
 	req, _ := tgt.Request()
 
@@ -150,6 +154,12 @@ func TestJSONTargeter(t *testing.T) {
 			`),
 			in:  &Target{},
 			out: &Target{Method: "GET", URL: "https://goku"},
+		},
+		{
+			name: "has extra",
+			src:  target(`{"method": "GET", "url": "http://goku", "header":{"x": ["foo"]}, "extra":{"key": "value"}, "body": "QVRUQUNLIQ=="}`),
+			in:   &Target{},
+			out:  &Target{Method: "GET", URL: "http://goku", Header: http.Header{"x": []string{"foo"}}, Extra: Extra{"key": "value"}, Body: []byte("ATTACK!")},
 		},
 	} {
 		tc := tc
@@ -273,6 +283,12 @@ func TestNewHTTPTargeter(t *testing.T) {
 		errors.New("bad header"): `
 			GET http://:6060
 			: 1234`,
+		errors.New("bad extra"): `
+			GET http://:6060
+			#extra: 1234`,
+		errors.New("bad extra"): `
+			GET http://:6060
+			#extra:=1234`,
 	} {
 		src := bytes.NewBufferString(strings.TrimSpace(def))
 		read := NewHTTPTargeter(src, []byte{}, http.Header{})
@@ -293,10 +309,13 @@ func TestNewHTTPTargeter(t *testing.T) {
 		GET http://:6060/
 		X-Header: 1
 		X-Header: 2
+		#extra:key1=value1
 
 		PUT https://:6060/123
 
 		DELETE http://moo:443/boo
+		#extra:key2=value2
+		#extra:key3=value3
 
 		POST http://foobar.org/fnord
 		Authorization: x12345
@@ -305,7 +324,9 @@ func TestNewHTTPTargeter(t *testing.T) {
 
 
 		POST http://foobar.org/fnord/2
+		#extra:key1=value1
 		Authorization: x67890
+		#extra:key2=value2
 		@`, bodyf.Name(),
 		`
 
@@ -314,14 +335,18 @@ func TestNewHTTPTargeter(t *testing.T) {
 		# This is a comment. Lines starting with hash pound are ignored.
 		GET http://:6060/
 		X-Header: 1
+		#extra:key1=value1
 		X-Header: 2`,
 		`
 
 		GET http://:8000/
 		# This is a comment. Lines starting with hash pound are ignored even inside the target.
 		X-Header: 1
+		#extra:key1=value1
 		# Another comment.
-		X-Header: 2`,
+		X-Header: 2
+		# Another comment 2.
+		#extra:key1=value2`,
 	)
 
 	src := bytes.NewBufferString(strings.TrimSpace(targets))
@@ -335,6 +360,7 @@ func TestNewHTTPTargeter(t *testing.T) {
 				"X-Header":     []string{"1", "2"},
 				"Content-Type": []string{"text/plain"},
 			},
+			Extra: Extra{"key1": "value1"},
 		},
 		{
 			Method: "PUT",
@@ -347,6 +373,10 @@ func TestNewHTTPTargeter(t *testing.T) {
 			URL:    "http://moo:443/boo",
 			Body:   []byte{},
 			Header: http.Header{"Content-Type": []string{"text/plain"}},
+			Extra: Extra{
+				"key2": "value2",
+				"key3": "value3",
+			},
 		},
 		{
 			Method: "POST",
@@ -365,6 +395,10 @@ func TestNewHTTPTargeter(t *testing.T) {
 				"Authorization": []string{"x67890"},
 				"Content-Type":  []string{"text/plain"},
 			},
+			Extra: Extra{
+				"key1": "value1",
+				"key2": "value2",
+			},
 		},
 		{
 			Method: "SUBSCRIBE",
@@ -380,6 +414,7 @@ func TestNewHTTPTargeter(t *testing.T) {
 				"X-Header":     []string{"1", "2"},
 				"Content-Type": []string{"text/plain"},
 			},
+			Extra: Extra{"key1": "value1"},
 		},
 		{
 			Method: "GET",
@@ -389,6 +424,7 @@ func TestNewHTTPTargeter(t *testing.T) {
 				"X-Header":     []string{"1", "2"},
 				"Content-Type": []string{"text/plain"},
 			},
+			Extra: Extra{"key1": "value2"},
 		},
 	} {
 		var got Target
@@ -431,6 +467,7 @@ func BenchmarkJSONTargetEncoding(b *testing.B) {
 			URL:    "https://goku/12345",
 			Body:   []byte("BIG BANG!"),
 			Header: http.Header{"Content-Type": []string{"high/energy"}},
+			Extra:  Extra{"key": "value"},
 		}
 	}
 

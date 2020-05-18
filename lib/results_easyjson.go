@@ -108,6 +108,26 @@ func easyjsonBd1621b8DecodeGithubComTsenartVegetaV12Lib(in *jlexer.Lexer, out *j
 				}
 				in.Delim('}')
 			}
+		case "extra":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				in.Delim('{')
+				if !in.IsDelim('}') {
+					out.Extra = make(Extra)
+				} else {
+					out.Extra = nil
+				}
+				for !in.IsDelim('}') {
+					key := string(in.String())
+					in.WantColon()
+					var v4 string
+					v4 = string(in.String())
+					(out.Extra)[key] = v4
+					in.WantComma()
+				}
+				in.Delim('}')
+			}
 		default:
 			in.SkipRecursive()
 		}
@@ -184,27 +204,48 @@ func easyjsonBd1621b8EncodeGithubComTsenartVegetaV12Lib(out *jwriter.Writer, in 
 			out.RawString(`null`)
 		} else {
 			out.RawByte('{')
-			v6First := true
-			for v6Name, v6Value := range in.Headers {
-				if v6First {
-					v6First = false
+			v7First := true
+			for v7Name, v7Value := range in.Headers {
+				if v7First {
+					v7First = false
 				} else {
 					out.RawByte(',')
 				}
-				out.String(string(v6Name))
+				out.String(string(v7Name))
 				out.RawByte(':')
-				if v6Value == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
+				if v7Value == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
 					out.RawString("null")
 				} else {
 					out.RawByte('[')
-					for v7, v8 := range v6Value {
-						if v7 > 0 {
+					for v8, v9 := range v7Value {
+						if v8 > 0 {
 							out.RawByte(',')
 						}
-						out.String(string(v8))
+						out.String(string(v9))
 					}
 					out.RawByte(']')
 				}
+			}
+			out.RawByte('}')
+		}
+	}
+	{
+		const prefix string = ",\"extra\":"
+		out.RawString(prefix)
+		if in.Extra == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
+			out.RawString(`null`)
+		} else {
+			out.RawByte('{')
+			v10First := true
+			for v10Name, v10Value := range in.Extra {
+				if v10First {
+					v10First = false
+				} else {
+					out.RawByte(',')
+				}
+				out.String(string(v10Name))
+				out.RawByte(':')
+				out.String(string(v10Value))
 			}
 			out.RawByte('}')
 		}
